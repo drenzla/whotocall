@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>US Congress Contact Directory</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:    #1a3a6b;
+      --red:     #c0392b;
+      --gold:    #f0c040;
+      --bg:      #f4f6f9;
+      --card:    #ffffff;
+      --border:  #dde3ec;
+      --text:    #222;
+      --muted:   #667;
+      --dem:     #1565c0;
+      --rep:     #b71c1c;
+      --ind:     #5e35b1;
+      --radius:  8px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, var(--blue) 0%, #0d2449 100%);
+      color: #fff;
+      padding: 32px 24px 24px;
+      text-align: center;
+      border-bottom: 4px solid var(--gold);
+    }
+    header h1 { font-size: 2rem; letter-spacing: .5px; }
+    header p  { margin-top: 6px; opacity: .85; font-size: .95rem; }
+    .data-note {
+      margin-top: 10px;
+      font-size: .78rem;
+      opacity: .7;
+    }
+    .data-note a { color: var(--gold); }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 18px 24px;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 6px rgba(0,0,0,.06);
+    }
+    .controls input,
+    .controls select {
+      flex: 1 1 160px;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: .9rem;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .controls input { flex: 2 1 240px; }
+    .count-badge {
+      display: flex;
+      align-items: center;
+      font-size: .85rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* ── State sections ── */
+    #results { padding: 24px; }
+
+    .state-section {
+      margin-bottom: 32px;
+    }
+    .state-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--blue);
+    }
+    .state-header h2 {
+      font-size: 1.2rem;
+      color: var(--blue);
+    }
+    .state-count {
+      font-size: .8rem;
+      background: var(--blue);
+      color: #fff;
+      border-radius: 20px;
+      padding: 2px 10px;
+    }
+
+    /* ── Member cards ── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      transition: box-shadow .15s;
+    }
+    .card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .card-header h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .badge-group { display: flex; gap: 5px; flex-wrap: wrap; }
+    .badge {
+      font-size: .72rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+    .badge-chamber-sen { background: #e3f2fd; color: #0d47a1; }
+    .badge-chamber-rep { background: #f3e5f5; color: #6a1b9a; }
+    .badge-dem  { background: #bbdefb; color: var(--dem); }
+    .badge-rep  { background: #ffcdd2; color: var(--rep); }
+    .badge-ind  { background: #ede7f6; color: var(--ind); }
+    .badge-oth  { background: #f5f5f5; color: #444; }
+
+    .info-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: .83rem;
+      margin-bottom: 5px;
+      color: var(--muted);
+    }
+    .info-row .icon { flex-shrink: 0; width: 16px; text-align: center; }
+    .info-row span  { flex: 1; word-break: break-word; }
+    .info-row a     { color: var(--blue); text-decoration: none; }
+    .info-row a:hover { text-decoration: underline; }
+
+    /* ── Loading / error ── */
+    #status {
+      text-align: center;
+      padding: 48px 24px;
+      font-size: 1rem;
+      color: var(--muted);
+    }
+    .spinner {
+      display: inline-block;
+      width: 36px; height: 36px;
+      border: 4px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin-bottom: 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: .78rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      margin-top: 16px;
+    }
+    footer a { color: var(--blue); }
+
+    @media (max-width: 600px) {
+      header h1 { font-size: 1.4rem; }
+      .controls { padding: 12px; }
+      #results  { padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>&#127482;&#127480; US Congress Contact Directory</h1>
+  <p>Find and contact your US Senators and Representatives</p>
+  <p class="data-note">
+    Data sourced from
+    <a href="https://github.com/unitedstates/congress-legislators" target="_blank" rel="noopener">
+      unitedstates/congress-legislators
+    </a>
+    &mdash; community-maintained, updated regularly.
+  </p>
+</header>
+
+<div class="controls">
+  <input type="search" id="searchInput" placeholder="&#128269; Search by name or state&hellip;" aria-label="Search members" />
+  <select id="stateFilter" aria-label="Filter by state">
+    <option value="">All States &amp; Territories</option>
+  </select>
+  <select id="chamberFilter" aria-label="Filter by chamber">
+    <option value="">Both Chambers</option>
+    <option value="sen">Senate</option>
+    <option value="rep">House of Representatives</option>
+  </select>
+  <select id="partyFilter" aria-label="Filter by party">
+    <option value="">All Parties</option>
+    <option value="Democrat">Democrat</option>
+    <option value="Republican">Republican</option>
+    <option value="Independent">Independent</option>
+  </select>
+  <span class="count-badge" id="countBadge"></span>
+</div>
+
+<div id="status">
+  <div class="spinner"></div><br />Loading congressional data&hellip;
+</div>
+<div id="results" hidden></div>
+
+<footer>
+  Contact information is based on Washington, D.C. offices.
+  Most members use <strong>web contact forms</strong> instead of public email.
+  Data: <a href="https://github.com/unitedstates/congress-legislators" target="_blank" rel="noopener">unitedstates/congress-legislators</a>
+  &bull; <a href="https://www.congress.gov/members" target="_blank" rel="noopener">congress.gov</a>
+</footer>
+
+<script>
+  const DATA_URL =
+    'https://raw.githubusercontent.com/unitedstates/congress-legislators/main/legislators-current.json';
+
+  const STATE_NAMES = {
+    AL:'Alabama', AK:'Alaska', AZ:'Arizona', AR:'Arkansas', CA:'California',
+    CO:'Colorado', CT:'Connecticut', DE:'Delaware', FL:'Florida', GA:'Georgia',
+    HI:'Hawaii', ID:'Idaho', IL:'Illinois', IN:'Indiana', IA:'Iowa',
+    KS:'Kansas', KY:'Kentucky', LA:'Louisiana', ME:'Maine', MD:'Maryland',
+    MA:'Massachusetts', MI:'Michigan', MN:'Minnesota', MS:'Mississippi',
+    MO:'Missouri', MT:'Montana', NE:'Nebraska', NV:'Nevada', NH:'New Hampshire',
+    NJ:'New Jersey', NM:'New Mexico', NY:'New York', NC:'North Carolina',
+    ND:'North Dakota', OH:'Ohio', OK:'Oklahoma', OR:'Oregon', PA:'Pennsylvania',
+    RI:'Rhode Island', SC:'South Carolina', SD:'South Dakota', TN:'Tennessee',
+    TX:'Texas', UT:'Utah', VT:'Vermont', VA:'Virginia', WA:'Washington',
+    WV:'West Virginia', WI:'Wisconsin', WY:'Wyoming',
+    DC:'District of Columbia', PR:'Puerto Rico', GU:'Guam', VI:'Virgin Islands',
+    MP:'Northern Mariana Islands', AS:'American Samoa'
+  };
+
+  let allMembers = [];
+
+  // ── Fetch ──────────────────────────────────────────────────────────────────
+  async function loadData() {
+    try {
+      const res = await fetch(DATA_URL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      allMembers = data.map(parseMember).filter(Boolean);
+      buildStateFilter();
+      render();
+    } catch (err) {
+      document.getElementById('status').innerHTML =
+        `<strong>Unable to load data.</strong><br>
+         Please check your internet connection and reload.<br>
+         <small style="color:#888">${err.message}</small><br><br>
+         <a href="https://www.congress.gov/members" target="_blank" rel="noopener">
+           Browse members directly on congress.gov ↗
+         </a>`;
+    }
+  }
+
+  function parseMember(m) {
+    // Use the last (most-current) term
+    const term = m.terms && m.terms[m.terms.length - 1];
+    if (!term) return null;
+    return {
+      name:    m.name?.official_full || `${m.name?.first} ${m.name?.last}`,
+      state:   term.state || '',
+      party:   term.party || '',
+      chamber: term.type || '',      // 'sen' | 'rep'
+      district: term.district ?? null,
+      phone:   term.phone || '',
+      fax:     term.fax || '',
+      address: term.address || '',
+      office:  term.office || '',
+      url:     term.url || '',
+      contact: term.contact_form || '',
+      start:   term.start || '',
+      end:     term.end || '',
+    };
+  }
+
+  // ── State filter options ────────────────────────────────────────────────────
+  function buildStateFilter() {
+    const states = [...new Set(allMembers.map(m => m.state))].sort();
+    const sel = document.getElementById('stateFilter');
+    states.forEach(code => {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = `${STATE_NAMES[code] || code} (${code})`;
+      sel.appendChild(opt);
+    });
+  }
+
+  // ── Filtering ───────────────────────────────────────────────────────────────
+  function getFiltered() {
+    const q       = document.getElementById('searchInput').value.trim().toLowerCase();
+    const state   = document.getElementById('stateFilter').value;
+    const chamber = document.getElementById('chamberFilter').value;
+    const party   = document.getElementById('partyFilter').value;
+
+    return allMembers.filter(m => {
+      if (state   && m.state   !== state)   return false;
+      if (chamber && m.chamber !== chamber) return false;
+      if (party   && m.party   !== party)   return false;
+      if (q) {
+        const haystack = `${m.name} ${m.state} ${STATE_NAMES[m.state]||''} ${m.party}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+  function render() {
+    const filtered = getFiltered();
+    const resultsEl = document.getElementById('results');
+    const statusEl  = document.getElementById('status');
+
+    document.getElementById('countBadge').textContent =
+      `${filtered.length.toLocaleString()} member${filtered.length !== 1 ? 's' : ''}`;
+
+    if (filtered.length === 0) {
+      statusEl.innerHTML = '<strong>No members match your filters.</strong>';
+      statusEl.hidden = false;
+      resultsEl.hidden = true;
+      return;
+    }
+
+    statusEl.hidden = true;
+    resultsEl.hidden = false;
+
+    // Group by state
+    const byState = {};
+    filtered.forEach(m => {
+      (byState[m.state] = byState[m.state] || []).push(m);
+    });
+
+    const sortedStates = Object.keys(byState).sort((a, b) =>
+      (STATE_NAMES[a] || a).localeCompare(STATE_NAMES[b] || b)
+    );
+
+    resultsEl.innerHTML = sortedStates.map(state => {
+      const members = byState[state];
+      // Senators first, then Representatives sorted by district then name
+      members.sort((a, b) => {
+        if (a.chamber !== b.chamber) return a.chamber === 'sen' ? -1 : 1;
+        if (a.district !== b.district) return (a.district ?? 999) - (b.district ?? 999);
+        return a.name.localeCompare(b.name);
+      });
+      return `
+        <div class="state-section">
+          <div class="state-header">
+            <h2>${STATE_NAMES[state] || state}</h2>
+            <span class="state-count">${members.length} member${members.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div class="cards-grid">
+            ${members.map(cardHTML).join('')}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function cardHTML(m) {
+    const chamberLabel = m.chamber === 'sen' ? 'Senator' : 'Representative';
+    const chamberBadgeClass = m.chamber === 'sen' ? 'badge-chamber-sen' : 'badge-chamber-rep';
+    const partyBadgeClass =
+      m.party === 'Democrat'    ? 'badge-dem' :
+      m.party === 'Republican'  ? 'badge-rep' :
+      m.party === 'Independent' ? 'badge-ind' : 'badge-oth';
+    const districtNote = (m.chamber === 'rep' && m.district !== null)
+      ? ` &ndash; District ${m.district === 0 ? 'At-Large' : m.district}` : '';
+
+    const phone = m.phone
+      ? `<div class="info-row"><span class="icon">📞</span><span><a href="tel:${m.phone}">${m.phone}</a></span></div>` : '';
+
+    const address = m.address
+      ? `<div class="info-row"><span class="icon">🏛️</span><span>${escHtml(m.address)}</span></div>` : '';
+
+    const website = m.url
+      ? `<div class="info-row"><span class="icon">🌐</span><span><a href="${escHtml(m.url)}" target="_blank" rel="noopener">Official Website</a></span></div>` : '';
+
+    const contact = m.contact
+      ? `<div class="info-row"><span class="icon">✉️</span><span><a href="${escHtml(m.contact)}" target="_blank" rel="noopener">Contact Form</a></span></div>`
+      : (m.url ? `<div class="info-row"><span class="icon">✉️</span><span><a href="${escHtml(m.url)}" target="_blank" rel="noopener">Visit website to contact</a></span></div>` : '');
+
+    const fax = m.fax
+      ? `<div class="info-row"><span class="icon">📠</span><span>${escHtml(m.fax)}</span></div>` : '';
+
+    return `
+      <div class="card">
+        <div class="card-header">
+          <h3>${escHtml(m.name)}${districtNote}</h3>
+          <div class="badge-group">
+            <span class="badge ${chamberBadgeClass}">${chamberLabel}</span>
+            <span class="badge ${partyBadgeClass}">${escHtml(m.party || 'Unknown')}</span>
+          </div>
+        </div>
+        ${phone}${address}${website}${contact}${fax}
+      </div>`;
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+
+  // ── Event listeners ─────────────────────────────────────────────────────────
+  ['searchInput','stateFilter','chamberFilter','partyFilter'].forEach(id => {
+    document.getElementById(id).addEventListener('input', render);
+  });
+
+  // ── Boot ─────────────────────────────────────────────────────────────────────
+  loadData();
+</script>
+</body>
+</html>
